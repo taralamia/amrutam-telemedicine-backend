@@ -1,7 +1,6 @@
 from collections.abc import Generator
 
 from sqlalchemy import create_engine, text
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -31,8 +30,5 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def check_database() -> None:
-    try:
-        with engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
-    except SQLAlchemyError:
-        raise
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
