@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.api.auth import router as auth_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.db import check_database
@@ -29,6 +30,7 @@ app = FastAPI(
     description="Amrutam telemedicine REST API",
     lifespan=lifespan,
 )
+app.include_router(auth_router, prefix="/v1")
 
 
 @app.middleware("http")

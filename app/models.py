@@ -21,6 +21,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.encryption import EncryptedText
 from app.db import Base
 
 
@@ -62,19 +63,21 @@ class User(Base):
     __table_args__ = (
         CheckConstraint("length(email) <= 320", name="ck_users_email_length"),
         Index("ix_users_role_active", "role", "is_active"),
+        UniqueConstraint("email", name="uq_users_email"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[Role] = mapped_column(Enum(Role, native_enum=False), nullable=False)
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
     )
-    mfa_secret_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mfa_secret_encrypted: Mapped[str | None] = mapped_column(EncryptedText, nullable=True)
     mfa_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
+    mfa_pending_secret_encrypted: Mapped[str | None] = mapped_column(EncryptedText, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -93,8 +96,8 @@ class Profile(Base):
         ForeignKey("users.id", ondelete="RESTRICT"), primary_key=True
     )
     full_name: Mapped[str] = mapped_column(String(200), nullable=False)
-    phone_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
-    birth_date_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    phone_encrypted: Mapped[str | None] = mapped_column(EncryptedText, nullable=True)
+    birth_date_encrypted: Mapped[str | None] = mapped_column(EncryptedText, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -297,15 +300,34 @@ class IdempotencyRecord(Base):
     )
 
 
+class AuthIdempotencyRecord(Base):
+    __tablename__ = "auth_idempotency_records"
+    __table_args__ = (UniqueConstraint("scope", "key", name="uq_auth_idempotency_scope_key"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    scope: Mapped[str] = mapped_column(String(100), nullable=False)
+    key: Mapped[str] = mapped_column(String(255), nullable=False)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    response_encrypted: Mapped[str | None] = mapped_column(EncryptedText, nullable=True)
+    response_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class RefreshSession(Base):
     __tablename__ = "refresh_sessions"
-    __table_args__ = (Index("ix_refresh_sessions_user_expiry", "user_id", "expires_at"),)
+    __table_args__ = (
+        Index("ix_refresh_sessions_user_expiry", "user_id", "expires_at"),
+        Index("ix_refresh_sessions_family", "token_family_id", "revoked_at"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    token_family_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, default=uuid.uuid4)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
