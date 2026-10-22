@@ -145,6 +145,13 @@ class AvailabilitySlot(Base):
         CheckConstraint("starts_at < ends_at", name="ck_slots_positive_duration"),
         CheckConstraint("version >= 1", name="ck_slots_version_positive"),
         Index("ix_slots_doctor_status_start", "doctor_id", "status", "starts_at"),
+        Index(
+            "ix_slots_available_start_doctor",
+            "starts_at",
+            "doctor_id",
+            postgresql_where=text("status = 'available' AND deleted_at IS NULL"),
+            sqlite_where=text("status = 'available' AND deleted_at IS NULL"),
+        ),
         UniqueConstraint("doctor_id", "starts_at", "ends_at", name="uq_doctor_slot_time"),
     )
 

@@ -38,3 +38,4 @@ def test_slots_include_search_index_and_lifecycle_version():
     assert {"status", "version", "deleted_at", "starts_at", "ends_at"} <= columns
     index_columns = {tuple(column.name for column in index.columns) for index in slot_table.indexes}
     assert ("doctor_id", "status", "starts_at") in index_columns
+    assert "ix_slots_available_start_doctor" in {index.name for index in slot_table.indexes}
