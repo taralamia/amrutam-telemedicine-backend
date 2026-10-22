@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.api.admin_analytics import router as admin_analytics_router
 from app.api.auth import router as auth_router
 from app.api.bookings import router as booking_router
 from app.api.consultations import router as consultation_router
@@ -35,6 +36,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.include_router(auth_router, prefix="/v1")
+app.include_router(admin_analytics_router, prefix="/v1")
 app.include_router(doctor_router, prefix="/v1")
 app.include_router(doctor_search_router, prefix="/v1")
 app.include_router(booking_router, prefix="/v1")
