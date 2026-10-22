@@ -109,6 +109,7 @@ class Doctor(Base):
     __table_args__ = (
         CheckConstraint("rating >= 0 AND rating <= 5", name="ck_doctors_rating_range"),
         CheckConstraint("consultation_fee >= 0", name="ck_doctors_fee_nonnegative"),
+        CheckConstraint("version >= 1", name="ck_doctors_version_positive"),
         Index("ix_doctors_search", "specialty", "is_listed", "rating"),
         Index("ix_doctors_languages_gin", "languages", postgresql_using="gin"),
     )
@@ -125,6 +126,7 @@ class Doctor(Base):
     consultation_fee: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False, default=500)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR")
     rating_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     is_listed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
