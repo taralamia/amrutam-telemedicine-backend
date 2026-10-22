@@ -17,6 +17,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -166,11 +167,17 @@ class AvailabilitySlot(Base):
 class Consultation(Base):
     __tablename__ = "consultations"
     __table_args__ = (
-        UniqueConstraint("availability_slot_id", name="uq_consultations_slot"),
         CheckConstraint("version >= 1", name="ck_consultations_version_positive"),
         Index("ix_consultations_patient_created", "patient_id", "created_at"),
         Index("ix_consultations_doctor_start", "doctor_id", "starts_at"),
         Index("ix_consultations_status_created", "status", "created_at"),
+        Index(
+            "uq_consultations_slot_active",
+            "availability_slot_id",
+            unique=True,
+            postgresql_where=text("status NOT IN ('cancelled', 'payment_failed')"),
+            sqlite_where=text("status NOT IN ('cancelled', 'payment_failed')"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)

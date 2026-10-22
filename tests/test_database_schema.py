@@ -21,8 +21,8 @@ def test_core_and_reliability_tables_are_in_metadata():
 
 
 def test_booking_and_medical_uniqueness_constraints_exist():
-    assert "uq_consultations_slot" in {
-        constraint.name for constraint in Base.metadata.tables["consultations"].constraints
+    assert "uq_consultations_slot_active" in {
+        index.name for index in Base.metadata.tables["consultations"].indexes
     }
     assert "uq_prescriptions_consultation" in {
         constraint.name for constraint in Base.metadata.tables["prescriptions"].constraints

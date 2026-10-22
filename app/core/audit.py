@@ -8,7 +8,7 @@ from app.models import AuditLog
 def record_audit(
     session: Session,
     *,
-    actor_id: UUID,
+    actor_id: UUID | None,
     action: str,
     entity_type: str,
     entity_id: UUID | str,
