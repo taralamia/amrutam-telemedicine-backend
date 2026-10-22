@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+pysqlite:///./amrutam.db"
     redis_url: str | None = None
     trusted_hosts: str = "*"
+    otel_service_name: str = "amrutam-telemedicine-api"
+    otel_exporter_otlp_endpoint: str | None = None
+    otel_trace_sample_ratio: float = Field(default=0.1, ge=0.0, le=1.0)
     log_level: str = Field(default="INFO", pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
     jwt_secret: SecretStr
     jwt_issuer: str = "amrutam-api"
@@ -31,6 +34,11 @@ class Settings(BaseSettings):
     @field_validator("redis_url", mode="before")
     @classmethod
     def normalize_empty_redis_url(cls, value):
+        return None if value == "" else value
+
+    @field_validator("otel_exporter_otlp_endpoint", mode="before")
+    @classmethod
+    def normalize_empty_otel_endpoint(cls, value):
         return None if value == "" else value
 
     @field_validator("jwt_secret", "data_encryption_key")
@@ -52,6 +60,10 @@ class Settings(BaseSettings):
             raise ValueError("PAYMENT_WEBHOOK_SECRET is required in production")
         if self.redis_url is not None and not self.redis_url.startswith(("redis://", "rediss://")):
             raise ValueError("REDIS_URL must use redis:// or rediss://")
+        if self.otel_exporter_otlp_endpoint is not None:
+            valid_endpoint = self.otel_exporter_otlp_endpoint.startswith(("http://", "https://"))
+            if not valid_endpoint:
+                raise ValueError("OTEL_EXPORTER_OTLP_ENDPOINT must use http:// or https://")
         if self.app_env == "production" and not self.redis_url:
             raise ValueError("REDIS_URL is required in production for distributed rate limiting")
         if self.app_env == "production" and (

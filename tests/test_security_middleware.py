@@ -34,9 +34,12 @@ def security_client():
             yield session
 
     app.dependency_overrides[get_db] = override_db
+    previous_limiter = getattr(app.state, "rate_limiter", None)
     with TestClient(app) as client:
         yield client
     app.dependency_overrides.clear()
+    if previous_limiter is not None:
+        app.state.rate_limiter = previous_limiter
     Base.metadata.drop_all(engine)
     engine.dispose()
 

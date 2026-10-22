@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+import time
 import uuid
 from contextlib import asynccontextmanager
 
@@ -19,6 +20,7 @@ from app.api.doctors import router as doctor_router
 from app.core.config import get_settings
 from app.core.http_security import MaxRequestBodySizeMiddleware, SecurityHeadersMiddleware
 from app.core.logging import configure_logging
+from app.core.observability import configure_observability, prometheus_payload, record_http_request
 from app.core.rate_limit import (
     InMemoryRateLimiter,
     RateLimitBackendError,
@@ -33,6 +35,7 @@ logger = logging.getLogger("amrutam.http")
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    configure_observability(application)
     if settings.redis_url:
         redis_client = Redis.from_url(
             settings.redis_url,
@@ -79,12 +82,30 @@ async def request_context(request: Request, call_next):
     except ValueError:
         request_id = str(uuid.uuid4())
     request.state.request_id = request_id
+    started_at = time.perf_counter()
     response = await _rate_limit_response(request)
-    if response is None:
-        response = await call_next(request)
+    try:
+        if response is None:
+            response = await call_next(request)
+    except Exception:
+        route = request.scope.get("route")
+        record_http_request(
+            request.method,
+            getattr(route, "path", "unmatched"),
+            500,
+            time.perf_counter() - started_at,
+        )
+        raise
     _apply_response_security_headers(response, request.url.path)
     response.headers["X-Request-ID"] = request_id
     route = request.scope.get("route")
+    route_path = getattr(route, "path", "unmatched")
+    record_http_request(
+        request.method,
+        route_path,
+        response.status_code,
+        time.perf_counter() - started_at,
+    )
     logger.info(
         json.dumps(
             {
@@ -150,6 +171,12 @@ async def _rate_limit_response(request: Request) -> Response | None:
 @app.get("/health/live", include_in_schema=False)
 def liveness():
     return {"status": "ok"}
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics_endpoint():
+    payload, content_type = prometheus_payload()
+    return Response(content=payload, media_type=content_type)
 
 
 @app.get("/health/ready", include_in_schema=False)
