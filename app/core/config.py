@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     app_name: str = "Amrutam Telemedicine API"
     app_env: str = "development"
     database_url: str = "sqlite+pysqlite:///./amrutam.db"
+    redis_url: str | None = None
+    trusted_hosts: str = "*"
     log_level: str = Field(default="INFO", pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
     jwt_secret: SecretStr
     jwt_issuer: str = "amrutam-api"
@@ -23,6 +25,13 @@ class Settings(BaseSettings):
     data_encryption_key: SecretStr
     payment_webhook_secret: SecretStr | None = None
     auth_rate_limit_per_minute: int = Field(default=10, ge=1, le=1000)
+    booking_rate_limit_per_minute: int = Field(default=20, ge=1, le=5000)
+    webhook_rate_limit_per_minute: int = Field(default=1200, ge=1, le=10000)
+
+    @field_validator("redis_url", mode="before")
+    @classmethod
+    def normalize_empty_redis_url(cls, value):
+        return None if value == "" else value
 
     @field_validator("jwt_secret", "data_encryption_key")
     @classmethod
@@ -41,6 +50,14 @@ class Settings(BaseSettings):
             raise ValueError("PAYMENT_WEBHOOK_SECRET must be at least 32 characters")
         if self.app_env == "production" and self.payment_webhook_secret is None:
             raise ValueError("PAYMENT_WEBHOOK_SECRET is required in production")
+        if self.redis_url is not None and not self.redis_url.startswith(("redis://", "rediss://")):
+            raise ValueError("REDIS_URL must use redis:// or rediss://")
+        if self.app_env == "production" and not self.redis_url:
+            raise ValueError("REDIS_URL is required in production for distributed rate limiting")
+        if self.app_env == "production" and (
+            not self.trusted_host_list or "*" in self.trusted_host_list
+        ):
+            raise ValueError("TRUSTED_HOSTS must explicitly list production host names")
         secrets = [
             self.jwt_secret.get_secret_value(),
             self.data_encryption_key.get_secret_value(),
@@ -50,6 +67,10 @@ class Settings(BaseSettings):
         if len(secrets) != len(set(secrets)):
             raise ValueError("JWT, encryption, and payment webhook secrets must be different")
         return self
+
+    @property
+    def trusted_host_list(self) -> list[str]:
+        return [host.strip() for host in self.trusted_hosts.split(",") if host.strip()]
 
 
 @lru_cache
