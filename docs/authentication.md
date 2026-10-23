@@ -18,4 +18,4 @@ Authenticated users re-enter their password at `POST /v1/auth/mfa/setup` to crea
 
 ## Operations and boundaries
 
-The API returns generic credential failures and performs a dummy password verification for unknown users to reduce account enumeration. Authentication rate limits are a separate middleware/deployment control to be added in subtask 10. Configure trusted TLS ingress, prevent tokens from entering logs/URLs, and apply browser token storage policy at the client. JWT role claims are not trusted alone: role and account status are compared with current database state on each request.
+The API returns generic credential failures and performs a dummy password verification for unknown users to reduce account enumeration. Authentication rate limits are enforced by middleware and use shared Redis in production; requests fail closed if that backend is unavailable. Configure trusted TLS ingress, prevent tokens from entering logs/URLs, and apply browser token storage policy at the client. JWT role claims are not trusted alone: role and account status are compared with current database state on each request.

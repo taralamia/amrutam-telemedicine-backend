@@ -14,7 +14,17 @@ This is an AWS reference topology, not a universal sizing recommendation. Review
 
 Before first `terraform init`, create a dedicated S3 state bucket with versioning, encryption, public-access blocking, and tightly restricted access. Initialize with an S3 backend configuration, for example `terraform init -backend-config="bucket=<state-bucket>" -backend-config="key=amrutam/production/terraform.tfstate" -backend-config="region=<state-region>" -backend-config="encrypt=true" -backend-config="use_lockfile=true"`. Keep state access restricted: Terraform state contains generated application credentials even though outputs do not reveal them.
 
-The AWS account must have the GitHub Actions OIDC provider `https://token.actions.githubusercontent.com` registered. Supply `aws_region`, `app_host`, `certificate_arn`, `github_repository`, and an initial immutable `container_image` using a protected `terraform.tfvars` file or equivalent; never commit credentials or secret values. The ACM certificate must already exist in the selected region. Apply the Terraform plan from a reviewed, authenticated operator session, then create a DNS alias from `app_host` to the `load_balancer_dns_name` output.
+The AWS account must have the GitHub Actions OIDC provider `https://token.actions.githubusercontent.com` registered. Supply `aws_region`, `app_host`, `certificate_arn`, `github_repository`, and an initial immutable `container_image` using a protected `terraform.tfvars` file or equivalent; never commit credentials or secret values. The ACM certificate must already exist in the selected region.
+
+The first image must exist before ECS can start its initial tasks. Bootstrap in
+this order: initialize the secured backend and provider, apply only
+`aws_ecr_repository.api` with the required variables, build and push an initial
+image tagged immutably (for example `sha-bootstrap-<commit>`), then set
+`container_image` to that full image URI and apply the complete reviewed plan.
+After the initial deployment, GitHub Actions publishes and deploys commit-SHA
+images. Use a controlled operator session for bootstrap; never put AWS keys or
+application credentials in the image or source control. Once the ALB is ready,
+create a DNS alias from `app_host` to the `load_balancer_dns_name` output.
 
 Terraform generates unique database, Redis, JWT, encryption, and payment-webhook secrets and stores them in Secrets Manager. The secret values are also present in Terraform state, which is why a remote encrypted backend with strict access controls is mandatory. Application tasks have only the execution-role permission needed to retrieve this one secret. Rotation must coordinate with the application/database/cache and be exercised before production use.
 
