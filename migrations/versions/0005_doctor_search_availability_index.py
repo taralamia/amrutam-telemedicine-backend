@@ -1,15 +1,15 @@
 """Index upcoming available slots for directory search.
 
-Revision ID: 0005_doctor_search_availability_index
-Revises: 0004_rebookable_consultation_slots
+Revision ID: 0005_doctor_search_index
+Revises: 0004_rebook_slots
 """
 
 import sqlalchemy as sa
 from alembic import context, op
 from sqlalchemy import inspect
 
-revision = "0005_doctor_search_availability_index"
-down_revision = "0004_rebookable_consultation_slots"
+revision = "0005_doctor_search_index"
+down_revision = "0004_rebook_slots"
 branch_labels = None
 depends_on = None
 

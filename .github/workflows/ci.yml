@@ -1,0 +1,131 @@
+name: CI and container release
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: false
+      - run: uv sync --locked --extra dev
+      - run: uv run --locked ruff check app tests migrations
+      - run: uv run --locked ruff format --check app tests migrations
+      - run: uv run --locked pytest -q
+      - run: docker build --tag amrutam-telemedicine-api:ci .
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: test
+    runs-on: ubuntu-latest
+    concurrency:
+      group: production-release
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push immutable image
+        id: image
+        env:
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ vars.ECR_REPOSITORY }}:sha-${{ github.sha }}
+
+      - name: Fetch current task definition and set release image
+        env:
+          ECS_TASK_FAMILY: ${{ vars.ECS_TASK_FAMILY }}
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "$ECS_TASK_FAMILY" \
+            --query taskDefinition \
+            --output json |
+            jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)' \
+              > task-definition.json
+          jq --arg image "$ECR_REPOSITORY:sha-${GITHUB_SHA}" \
+            '(.containerDefinitions[] | select(.name == "api").image) = $image' \
+            task-definition.json > task-definition-release.json
+
+      - name: Register release task definition
+        id: taskdef
+        run: |
+          task_definition_arn=$(aws ecs register-task-definition \
+            --cli-input-json file://task-definition-release.json \
+            --query taskDefinition.taskDefinitionArn \
+            --output text)
+          echo "arn=$task_definition_arn" >> "$GITHUB_OUTPUT"
+
+      - name: Run database migrations
+        env:
+          ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+          APPLICATION_SUBNET_IDS: ${{ vars.APPLICATION_SUBNET_IDS }}
+          APPLICATION_SECURITY_GROUP_ID: ${{ vars.APPLICATION_SECURITY_GROUP_ID }}
+          TASK_DEFINITION: ${{ steps.taskdef.outputs.arn }}
+        run: |
+          subnet_list=$(printf '%s' "$APPLICATION_SUBNET_IDS" | awk -F, '{
+            for (i = 1; i <= NF; i++) {
+              if (i > 1) printf ","
+              printf "%s", $i
+            }
+          }')
+          network_configuration="awsvpcConfiguration={subnets=[$subnet_list],securityGroups=[$APPLICATION_SECURITY_GROUP_ID],assignPublicIp=DISABLED}"
+          task_arn=$(aws ecs run-task \
+            --cluster "$ECS_CLUSTER" \
+            --task-definition "$TASK_DEFINITION" \
+            --launch-type FARGATE \
+            --network-configuration "$network_configuration" \
+            --overrides '{"containerOverrides":[{"name":"api","command":["alembic","upgrade","head"]}]}' \
+            --query 'tasks[0].taskArn' \
+            --output text)
+          if [ "$task_arn" = "None" ] || [ -z "$task_arn" ]; then
+            echo "ECS did not start the migration task" >&2
+            exit 1
+          fi
+          aws ecs wait tasks-stopped --cluster "$ECS_CLUSTER" --tasks "$task_arn"
+          exit_code=$(aws ecs describe-tasks \
+            --cluster "$ECS_CLUSTER" \
+            --tasks "$task_arn" \
+            --query 'tasks[0].containers[?name==`api`].exitCode | [0]' \
+            --output text)
+          if [ "$exit_code" != "0" ]; then
+            aws ecs describe-tasks --cluster "$ECS_CLUSTER" --tasks "$task_arn"
+            echo "Database migration failed with exit code $exit_code" >&2
+            exit 1
+          fi
+
+      - name: Deploy release
+        env:
+          ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+          ECS_SERVICE: ${{ vars.ECS_SERVICE }}
+          TASK_DEFINITION: ${{ steps.taskdef.outputs.arn }}
+        run: |
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "$TASK_DEFINITION" \
+            --query service.serviceName \
+            --output text
+          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"

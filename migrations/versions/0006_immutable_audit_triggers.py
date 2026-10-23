@@ -1,13 +1,13 @@
 """Enforce append-only audit records in every supported database.
 
-Revision ID: 0006_immutable_audit_triggers
-Revises: 0005_doctor_search_availability_index
+Revision ID: 0006_audit_immutable
+Revises: 0005_doctor_search_index
 """
 
 from alembic import context, op
 
-revision = "0006_immutable_audit_triggers"
-down_revision = "0005_doctor_search_availability_index"
+revision = "0006_audit_immutable"
+down_revision = "0005_doctor_search_index"
 branch_labels = None
 depends_on = None
 

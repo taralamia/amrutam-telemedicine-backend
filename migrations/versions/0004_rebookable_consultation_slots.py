@@ -1,6 +1,6 @@
 """Allow a released availability slot to be booked again.
 
-Revision ID: 0004_rebookable_consultation_slots
+Revision ID: 0004_rebook_slots
 Revises: 0003_doctor_profile_version
 """
 
@@ -8,7 +8,7 @@ import sqlalchemy as sa
 from alembic import context, op
 from sqlalchemy import inspect
 
-revision = "0004_rebookable_consultation_slots"
+revision = "0004_rebook_slots"
 down_revision = "0003_doctor_profile_version"
 branch_labels = None
 depends_on = None
