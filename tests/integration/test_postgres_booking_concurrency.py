@@ -4,10 +4,13 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 from threading import Barrier
 from uuid import uuid4
 
 import pytest
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.orm import Session, sessionmaker
@@ -38,7 +41,12 @@ def postgres_booking_api():
     engine = create_engine(database_url, pool_pre_ping=True)
     with engine.connect() as connection:
         migration = connection.scalar(text("SELECT version_num FROM alembic_version"))
-    assert migration == "0006_audit_immutable"
+    repo_root = Path(__file__).resolve().parents[2]
+    script = ScriptDirectory.from_config(Config(str(repo_root / "alembic.ini")))
+    head = script.get_current_head()
+    assert migration == head, (
+        f"database is at {migration} but the Alembic head is {head}; run alembic upgrade head"
+    )
 
     Base.metadata.create_all(engine)
     session_factory = sessionmaker(engine, class_=Session, expire_on_commit=False)
