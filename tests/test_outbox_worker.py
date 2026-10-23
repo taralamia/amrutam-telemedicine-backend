@@ -1,12 +1,13 @@
 from datetime import UTC, datetime
 
+import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db import Base
 from app.models import OutboxEvent
-from app.workers.outbox import OutboxMessage, process_outbox_batch
+from app.workers.outbox import OutboxMessage, _retry_delay_seconds, process_outbox_batch
 
 
 def _session_factory():
@@ -72,6 +73,37 @@ def test_outbox_worker_schedules_retry_after_handler_failure():
             assert stored.published_at is None
             assert stored.attempt_count == 1
             assert stored.available_at.replace(tzinfo=UTC) > datetime.now(UTC)
+    finally:
+        Base.metadata.drop_all(engine)
+        engine.dispose()
+
+
+@pytest.mark.parametrize(
+    ("attempt_count", "random_fraction", "expected"),
+    [
+        (1, 0.0, 0.5),
+        (1, 1.0, 1.0),
+        (2, 0.5, 1.5),
+        (100, 0.0, 150.0),
+        (100, 1.0, 300.0),
+    ],
+)
+def test_outbox_retry_uses_capped_exponential_backoff_with_jitter(
+    monkeypatch, attempt_count, random_fraction, expected
+):
+    monkeypatch.setattr(
+        "app.workers.outbox.random.uniform", lambda lower, upper: upper * random_fraction
+    )
+    assert _retry_delay_seconds(attempt_count) == expected
+
+
+def test_outbox_batch_size_is_bounded():
+    engine, factory = _session_factory()
+    try:
+        with pytest.raises(ValueError, match="batch_size"):
+            process_outbox_batch(factory, {}, batch_size=0)
+        with pytest.raises(ValueError, match="batch_size"):
+            process_outbox_batch(factory, {}, batch_size=501)
     finally:
         Base.metadata.drop_all(engine)
         engine.dispose()

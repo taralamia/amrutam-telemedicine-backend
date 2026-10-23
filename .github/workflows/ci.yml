@@ -11,6 +11,20 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: amrutam_test
+          POSTGRES_USER: amrutam
+          POSTGRES_PASSWORD: test-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U amrutam -d amrutam_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -23,7 +37,16 @@ jobs:
       - run: uv sync --locked --extra dev
       - run: uv run --locked ruff check app tests migrations
       - run: uv run --locked ruff format --check app tests migrations
+      - run: uv run --locked alembic upgrade head
+        env:
+          APP_ENV: test
+          DATABASE_URL: postgresql+psycopg://amrutam:test-only-password@localhost:5432/amrutam_test
+          JWT_SECRET: test-jwt-secret-long-enough-for-local-tests
+          DATA_ENCRYPTION_KEY: test-encryption-secret-long-enough-for-tests
+          PAYMENT_WEBHOOK_SECRET: test-payment-webhook-secret-long-enough
       - run: uv run --locked pytest -q
+        env:
+          POSTGRES_TEST_DATABASE_URL: postgresql+psycopg://amrutam:test-only-password@localhost:5432/amrutam_test
       - run: docker build --tag amrutam-telemedicine-api:ci .
 
   publish:

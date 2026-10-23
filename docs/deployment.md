@@ -20,7 +20,7 @@ Terraform generates unique database, Redis, JWT, encryption, and payment-webhook
 
 ## CI and release
 
-Pull requests and pushes run the lockfile check, Ruff lint/format checks, tests, and Docker image build. A push to `master` publishes an immutable SHA-tagged image to ECR, registers a task definition using that image, runs `alembic upgrade head` as a one-off Fargate task, then updates the ECS service and waits for it to become stable. The migration runs once per serialized release; database changes must use backward-compatible expand/migrate/contract sequencing because the old application tasks can remain live during migration and rollout.
+Pull requests and pushes run the lockfile check, Ruff lint/format checks, tests, and Docker image build. CI starts a disposable PostgreSQL 16 service, applies the full Alembic migration chain, and runs a PostgreSQL integration test that races two patients for one slot and verifies exactly one booking succeeds. A push to `master` publishes an immutable SHA-tagged image to ECR, registers a task definition using that image, runs `alembic upgrade head` as a one-off Fargate task, then updates the ECS service and waits for it to become stable. The migration runs once per serialized release; database changes must use backward-compatible expand/migrate/contract sequencing because the old application tasks can remain live during migration and rollout.
 
 Set these GitHub repository **variables** from the reviewed Terraform outputs:
 
