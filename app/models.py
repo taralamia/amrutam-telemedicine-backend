@@ -230,7 +230,7 @@ class Prescription(Base):
     patient_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
-    content_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
+    content_encrypted: Mapped[str] = mapped_column(EncryptedText, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

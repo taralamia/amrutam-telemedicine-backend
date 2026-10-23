@@ -8,7 +8,9 @@ search, append-only audit records, and admin analytics.
 The repository is a modular monolith backed by PostgreSQL. It uses Redis for
 shared production rate limits, a transactional outbox for external side effects,
 Alembic for schema migrations, OpenTelemetry/Prometheus instrumentation, Docker
-for packaging, and an AWS Terraform reference deployment.
+for packaging, and an AWS Terraform reference deployment. Prescription content
+and other designated sensitive fields are encrypted at the application layer
+with AES-GCM before database storage.
 
 > **Production readiness:** This codebase establishes the application and
 > deployment patterns, but does not prove the targets of 100,000 consultations

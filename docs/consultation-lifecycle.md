@@ -22,10 +22,14 @@ scheduled consultations can be cancelled; completed consultations and their
 prescriptions are retained. Optimistic version predicates and database row locks
 guard transitions against concurrent updates.
 
-Prescription content uses the encrypted database column and is never copied into
-audit records or outbox payloads. The unique consultation constraint prevents a
-second prescription. Prescription creation is audited and writes a notification
-event in the same transaction; every successful prescription read is separately
-audited without logging its content. Cancelling a paid, future consultation
-queues a refund request; cancelling a pending-payment consultation releases the
-slot, so a later payment success is handled by the payment webhook's refund path.
+Prescription content is encrypted at the application boundary with the
+`EncryptedText` AES-GCM type decorator before being stored in the `Text` database
+column; ORM reads decrypt it for authorized API responses. Migration `0007`
+encrypts existing plaintext rows in batches. Prescription text is never copied
+into audit records or outbox payloads. The unique consultation constraint
+prevents a second prescription. Prescription creation is audited and writes a
+notification event in the same transaction; every successful prescription
+read is separately audited without logging its content. Cancelling a paid,
+future consultation queues a refund request; cancelling a pending-payment
+consultation releases the slot, so a later payment success is handled by the
+payment webhook's refund path.

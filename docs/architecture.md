@@ -186,7 +186,10 @@ Additional reliability tables include idempotency records, refresh-token
 sessions, payment webhook event deduplication, and outbox events. Database
 constraints and indexes are defined in SQLAlchemy metadata and Alembic
 migrations; production must deploy schema changes with a separate migration
-identity.
+identity. Prescription content is stored in a `Text` column through the
+`EncryptedText` type decorator, which encrypts and decrypts with AES-GCM
+(`v1:` envelope) at the application boundary. Migration `0007` encrypts existing
+plaintext rows in bounded batches; new writes are encrypted automatically.
 
 ## Scaling, consistency, and operations
 

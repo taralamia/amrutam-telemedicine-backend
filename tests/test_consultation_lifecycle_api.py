@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -261,9 +261,18 @@ def test_only_participants_can_read_and_prescription_requires_completed_visit_an
     with consultation_api["session_factory"]() as session:
         prescription = session.scalar(select(Prescription))
         assert prescription.content_encrypted == "Take medicine after meals"
+        stored_content = session.execute(
+            text("SELECT content_encrypted FROM prescriptions WHERE id = :prescription_id"),
+            {"prescription_id": prescription.id.hex},
+        ).scalar_one()
+        assert stored_content.startswith("v1:")
+        assert "Take medicine after meals" not in stored_content
+
         audit = list(session.scalars(select(AuditLog)))
         assert any(item.action == "prescription.accessed" for item in audit)
         assert all("Take medicine after meals" not in str(item.details) for item in audit)
+        outbox = list(session.scalars(select(OutboxEvent)))
+        assert all("Take medicine after meals" not in str(item.payload) for item in outbox)
 
 
 def test_cancellation_releases_slot_and_queues_refund_for_paid_booking(consultation_api):

@@ -17,7 +17,7 @@ policy.
 |---|---|---|
 | Public | Listed doctor specialty, location, languages, rating | Publish only while doctor and account are active/listed; avoid exposing internal identifiers beyond API need |
 | PII | Email, name, phone, birth date, account/session identifiers | Least-privilege access; transport and storage encryption; no credential/token logging |
-| PHI | Consultation participation/status, prescription content, medical audit metadata | Role- and participant-scoped access; MFA for prescription access; encrypted fields/storage; no response caching or telemetry/log content |
+| PHI | Consultation participation/status, prescription content, medical audit metadata | Role- and participant-scoped access; MFA for prescription access; AES-GCM application encryption for prescription content and encrypted database storage; no response caching or telemetry/log content |
 | Payment-sensitive | Amount, currency, provider reference/event, webhook signature | Never store card data; validate signature/freshness and amount/currency; restrict secrets and audit state changes |
 | Secrets | JWT/data encryption/webhook keys, DB/Redis credentials, Terraform state | Secret manager, encrypted restricted state, rotation and access audit; never source-control or image-bake values |
 
