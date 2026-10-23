@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [master]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -50,9 +51,20 @@ jobs:
       - run: docker build --tag amrutam-telemedicine-api:ci .
 
   publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/master' &&
+      vars.AWS_ROLE_TO_ASSUME != '' &&
+      vars.AWS_REGION != '' &&
+      vars.ECR_REPOSITORY != '' &&
+      vars.ECS_TASK_FAMILY != '' &&
+      vars.ECS_CLUSTER != '' &&
+      vars.ECS_SERVICE != '' &&
+      vars.APPLICATION_SUBNET_IDS != '' &&
+      vars.APPLICATION_SECURITY_GROUP_ID != ''
     needs: test
     runs-on: ubuntu-latest
+    environment: production
     concurrency:
       group: production-release
       cancel-in-progress: false
