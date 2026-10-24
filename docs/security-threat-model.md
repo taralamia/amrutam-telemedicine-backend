@@ -26,6 +26,7 @@ policy.
 | Threat | Impact | Current controls | Residual work |
 |---|---|---|---|
 | Credential stuffing or account takeover | PII/PHI disclosure, fraudulent booking | Argon2 password hashing, short-lived JWT, refresh-token family rotation/reuse revocation, auth rate limit, MFA enrollment hooks | Add MFA recovery/rotation policy, abuse detection and alerting; evaluate phishing-resistant MFA for admins |
+| Forged or shared proxy client identity | Rate-limit evasion or one client exhausting a shared bucket | `TRUSTED_PROXY_HOPS=0` ignores forwarding headers; production requires a positive hop count, validates `X-Forwarded-For` IP entries, and selects from the right; AWS ALB appends the client IP and ECS ingress is restricted to ALB | Keep the ALB append behavior and task security-group boundary; update the hop count only when the complete trusted proxy chain is known |
 | Broken object-level authorization | Cross-patient consultation or prescription access | API scopes consultation reads to patient/assigned doctor; prescription read is participant-scoped and requires verified MFA | Add recurring authorization matrix tests and external penetration testing |
 | Concurrent double booking | Duplicate consultation/charge | PostgreSQL conditional versioned slot update, row locking, unique active consultation index, idempotency records | Run production-like contention/load tests and alert on booking conflicts |
 | Duplicate/replayed payment webhook | Duplicate state transition or refund | HMAC over exact raw body, timestamp tolerance, constant-time signature check, event-ID deduplication, amount/currency checks | Select provider, document key rotation, verify provider event canonicalization and reconciliation |
@@ -62,6 +63,7 @@ policy.
 
 - [x] PII/PHI fields are encrypted in application columns; managed DB/cache encryption and TLS are configured in the AWS reference.
 - [x] Production requires PostgreSQL, shared Redis rate limiting, and explicit trusted hosts.
+- [x] Production rate-limit identity uses a validated right-to-left `X-Forwarded-For` hop count; the AWS reference trusts one ALB append.
 - [x] Container runs as non-root, drops capabilities, and has a read-only root filesystem.
 - [x] Deployment uses a private application/data tier, HTTPS ingress, managed secrets, and OIDC federation.
 - [ ] Select and document approved residency region, retention periods, lawful basis, and deletion/subject-access process.

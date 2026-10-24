@@ -428,6 +428,7 @@ resource "aws_ecs_task_definition" "api" {
     environment = [
       { name = "APP_ENV", value = "production" },
       { name = "TRUSTED_HOSTS", value = var.app_host },
+      { name = "TRUSTED_PROXY_HOPS", value = "1" },
       { name = "JWT_ISSUER", value = "amrutam-api" },
       { name = "OTEL_SERVICE_NAME", value = "amrutam-telemedicine-api" }
     ]

@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+pysqlite:///./amrutam.db"
     redis_url: str | None = None
     trusted_hosts: str = "*"
+    trusted_proxy_hops: int = Field(default=0, ge=0, le=5)
     otel_service_name: str = "amrutam-telemedicine-api"
     otel_exporter_otlp_endpoint: str | None = None
     otel_trace_sample_ratio: float = Field(default=0.1, ge=0.0, le=1.0)
@@ -66,6 +67,8 @@ class Settings(BaseSettings):
                 raise ValueError("OTEL_EXPORTER_OTLP_ENDPOINT must use http:// or https://")
         if self.app_env == "production" and not self.redis_url:
             raise ValueError("REDIS_URL is required in production for distributed rate limiting")
+        if self.app_env == "production" and self.trusted_proxy_hops < 1:
+            raise ValueError("TRUSTED_PROXY_HOPS must be at least 1 in production")
         if self.app_env == "production" and (
             not self.trusted_host_list or "*" in self.trusted_host_list
         ):

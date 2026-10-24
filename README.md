@@ -94,13 +94,14 @@ Manager), not in source control, container images, CI logs, or command history.
 | `DATABASE_URL` | SQLAlchemy URL; production must use `postgresql+psycopg://` |
 | `REDIS_URL` | Shared Redis limiter; mandatory in production (`rediss://` recommended) |
 | `TRUSTED_HOSTS` | Comma-separated production host allow-list; wildcard rejected in production |
+| `TRUSTED_PROXY_HOPS` | Number of trusted proxy hops used to select the client IP from `X-Forwarded-For` (0–5; production requires at least 1) |
 | `JWT_SECRET` | Unique random signing key, minimum 32 characters |
 | `JWT_ISSUER` | Expected JWT issuer |
 | `ACCESS_TOKEN_MINUTES` | Access-token lifetime (1–60 minutes) |
 | `REFRESH_TOKEN_DAYS` | Refresh-session lifetime (1–365 days) |
 | `DATA_ENCRYPTION_KEY` | Unique random key for encrypted identity, prescription, and replay data |
 | `PAYMENT_WEBHOOK_SECRET` | Unique webhook HMAC key; mandatory in production |
-| `AUTH_RATE_LIMIT_PER_MINUTE` | Auth request limit per client peer |
+| `AUTH_RATE_LIMIT_PER_MINUTE` | Auth request limit per client IP |
 | `BOOKING_RATE_LIMIT_PER_MINUTE` | Consultation lifecycle write limit |
 | `WEBHOOK_RATE_LIMIT_PER_MINUTE` | Payment webhook limit |
 | `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` |

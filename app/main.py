@@ -17,6 +17,7 @@ from app.api.bookings import router as booking_router
 from app.api.consultations import router as consultation_router
 from app.api.doctor_search import router as doctor_search_router
 from app.api.doctors import router as doctor_router
+from app.core.client_ip import client_ip
 from app.core.config import get_settings
 from app.core.http_security import MaxRequestBodySizeMiddleware, SecurityHeadersMiddleware
 from app.core.logging import configure_logging
@@ -147,7 +148,7 @@ async def _rate_limit_response(request: Request) -> Response | None:
     else:
         return None
 
-    peer = request.client.host if request.client is not None else "unknown"
+    peer = client_ip(request, settings.trusted_proxy_hops)
     peer_hash = hashlib.sha256(peer.encode("utf-8")).hexdigest()
     key = f"rate-limit:{category}:{peer_hash}"
 
