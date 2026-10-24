@@ -6,5 +6,6 @@ __pycache__/
 .coverage
 *.py[cod]
 *.db
+loadtest/tokens.json
 dist/
 build/
